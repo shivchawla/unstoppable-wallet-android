@@ -23,7 +23,6 @@ class MarketTopService(
         data class Error(val error: Throwable) : State()
     }
 
-
     val stateObservable: BehaviorSubject<State> = BehaviorSubject.createDefault(State.Loading)
     val currency by currencyManager::baseCurrency
 

@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import io.horizontalsystems.bankwallet.R
 import io.horizontalsystems.bankwallet.core.App
+import io.horizontalsystems.bankwallet.modules.market.discovery.MarketCategoryProvider
+import io.horizontalsystems.bankwallet.modules.market.discovery.MarketDiscoveryService
+import io.horizontalsystems.bankwallet.modules.market.discovery.MarketDiscoveryViewModel
 import java.math.BigDecimal
 
 object MarketTopModule {
@@ -15,6 +18,17 @@ object MarketTopModule {
         override fun <T : ViewModel?> create(modelClass: Class<T>): T {
             val service = MarketTopService(App.currencyManager, MarketListTopDataSource(App.xRateManager), App.xRateManager)
             return MarketTopViewModel(service, App.connectivityManager, listOf(service)) as T
+        }
+
+    }
+
+    class Factory2 : ViewModelProvider.Factory {
+
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel?> create(modelClass: Class<T>): T {
+            val provider = MarketCategoryProvider()
+            val service = MarketDiscoveryService(provider, App.currencyManager, App.xRateManager)
+            return MarketDiscoveryViewModel(service, App.connectivityManager) as T
         }
 
     }

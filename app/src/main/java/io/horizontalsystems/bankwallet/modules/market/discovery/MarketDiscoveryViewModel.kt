@@ -1,24 +1,23 @@
-package io.horizontalsystems.bankwallet.modules.market.top
+package io.horizontalsystems.bankwallet.modules.market.discovery
 
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import io.horizontalsystems.bankwallet.R
 import io.horizontalsystems.bankwallet.core.App
-import io.horizontalsystems.bankwallet.core.Clearable
 import io.horizontalsystems.bankwallet.core.managers.ConnectivityManager
+import io.horizontalsystems.bankwallet.modules.market.top.*
 import io.horizontalsystems.core.SingleLiveEvent
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-import java.math.BigDecimal
-import java.util.*
+import java.util.Comparator
 
-class MarketTopViewModel(
-        private val service: MarketTopService,
-        private val connectivityManager: ConnectivityManager,
-        private val clearables: List<Clearable>
+class MarketDiscoveryViewModel(
+        private val service: MarketDiscoveryService,
+        private val connectivityManager: ConnectivityManager
 ) : ViewModel() {
 
     val sortingFields: Array<Field> by service::sortingFields
+    val marketCategories: List<MarketCategory> by service::marketCategories
 
     var sortingField: Field = sortingFields.first()
         private set
@@ -26,22 +25,14 @@ class MarketTopViewModel(
     var marketField: MarketField = MarketField.PriceDiff
         private set
 
-    fun update(sortingField: Field? = null, marketField: MarketField? = null) {
-        sortingField?.let {
-            this.sortingField = it
-        }
-        marketField?.let {
-            this.marketField = it
-        }
-        syncViewItemsBySortingField()
-    }
-
     val marketTopViewItemsLiveData = MutableLiveData<List<MarketTopViewItem>>()
+
     val loadingLiveData = MutableLiveData(false)
     val errorLiveData = MutableLiveData<String?>(null)
+
     val networkNotAvailable = SingleLiveEvent<Unit>()
 
-    private val disposable = CompositeDisposable()
+    private val disposables = CompositeDisposable()
 
     init {
         service.stateObservable
@@ -51,22 +42,36 @@ class MarketTopViewModel(
                     syncState(it)
                 }
                 .let {
-                    disposable.add(it)
+                    disposables.add(it)
                 }
     }
 
-    private fun syncState(state: MarketTopService.State) {
-        loadingLiveData.postValue(state is MarketTopService.State.Loading)
+    private fun syncState(state: MarketDiscoveryService.State) {
+        loadingLiveData.postValue(state is MarketDiscoveryService.State.Loading)
 
-        if (state is MarketTopService.State.Error && !connectivityManager.isConnected) {
+        if (state is MarketDiscoveryService.State.Error && !connectivityManager.isConnected) {
             networkNotAvailable.postValue(Unit)
         }
 
-        errorLiveData.postValue((state as? MarketTopService.State.Error)?.error?.let { convertErrorMessage(it) })
+        errorLiveData.postValue((state as? MarketDiscoveryService.State.Error)?.error?.let { convertErrorMessage(it) })
 
-        if (state is MarketTopService.State.Loaded) {
+        if (state is MarketDiscoveryService.State.Loaded) {
             syncViewItemsBySortingField()
         }
+    }
+
+    private fun convertErrorMessage(it: Throwable): String {
+        return it.message ?: it.javaClass.simpleName
+    }
+
+    fun update(sortingField: Field? = null, marketField: MarketField? = null) {
+        sortingField?.let {
+            this.sortingField = it
+        }
+        marketField?.let {
+            this.marketField = it
+        }
+        syncViewItemsBySortingField()
     }
 
     private fun syncViewItemsBySortingField() {
@@ -95,25 +100,6 @@ class MarketTopViewModel(
         marketTopViewItemsLiveData.postValue(viewItems)
     }
 
-    private fun convertErrorMessage(it: Throwable): String {
-        return it.message ?: it.javaClass.simpleName
-    }
-
-
-    override fun onCleared() {
-        clearables.forEach(Clearable::clear)
-        disposable.clear()
-        super.onCleared()
-    }
-
-    fun refresh() {
-        service.refresh()
-    }
-
-    fun onErrorClick() {
-        service.refresh()
-    }
-
     private fun sort(items: List<MarketTopItem>, sortingField: Field) = when (sortingField) {
         Field.HighestCap -> items.sortedByDescendingNullLast { it.marketCap }
         Field.LowestCap -> items.sortedByNullLast { it.marketCap }
@@ -125,29 +111,18 @@ class MarketTopViewModel(
         Field.TopLosers -> items.sortedByNullLast { it.diff }
     }
 
-}
-
-data class MarketTopViewItem(
-        val rank: Int,
-        val coinCode: String,
-        val coinName: String,
-        val rate: String,
-        val diff: BigDecimal,
-        val marketDataValue: MarketDataValue
-) {
-    sealed class MarketDataValue {
-        class MarketCap(val value: String) : MarketDataValue()
-        class Volume(val value: String) : MarketDataValue()
-        class Diff(val value: BigDecimal) : MarketDataValue()
+    fun refresh() {
+        service.refresh()
     }
 
-    fun areItemsTheSame(other: MarketTopViewItem): Boolean {
-        return coinCode == other.coinCode && coinName == other.coinName
+    fun onErrorClick() {
+        service.refresh()
     }
 
-    fun areContentsTheSame(other: MarketTopViewItem): Boolean {
-        return this == other
+    fun onSelectMarketCategory(marketCategory: MarketCategory?) {
+        service.marketCategory = marketCategory
     }
+
 }
 
 inline fun <T, R : Comparable<R>> Iterable<T>.sortedByDescendingNullLast(crossinline selector: (T) -> R?): List<T> {

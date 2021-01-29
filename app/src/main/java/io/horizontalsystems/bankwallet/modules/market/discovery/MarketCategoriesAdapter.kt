@@ -49,9 +49,7 @@ class MarketCategoriesAdapter(
     }
 
     override fun onTabSelected(tab: TabLayout.Tab) {
-        marketCategories.getOrNull(tab.position)?.let {
-            listener.onSelect(it)
-        }
+        listener.onSelect(marketCategories.getOrNull(tab.position))
 
         //hide icon
         tab.view.findViewById<ImageView>(android.R.id.icon).apply {
@@ -129,6 +127,7 @@ class MarketCategoriesAdapter(
 
     override fun onTabReselected(tab: TabLayout.Tab) {
         tabLayout.selectTab(null)
+        listener.onSelect(null)
     }
 
     private fun TabLayout.Tab.setDescription(@StringRes descriptionResId: Int): TabLayout.Tab {
@@ -137,7 +136,7 @@ class MarketCategoriesAdapter(
     }
 
     interface Listener {
-        fun onSelect(marketCategory: MarketCategory)
+        fun onSelect(marketCategory: MarketCategory?)
     }
 
 }
